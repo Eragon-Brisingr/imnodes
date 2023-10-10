@@ -139,6 +139,7 @@ struct ImNodeData
     {
         ImU32 Background, BackgroundHovered, BackgroundSelected, Outline, Titlebar, TitlebarHovered,
             TitlebarSelected;
+        ImU32 AroundPinBackground, AroundPinHovered;
     } ColorStyle;
 
     struct
@@ -146,15 +147,17 @@ struct ImNodeData
         float  CornerRounding;
         ImVec2 Padding;
         float  BorderThickness;
+        ImVec2 AroundPinPadding;
     } LayoutStyle;
 
     ImVector<int> PinIndices;
     bool          Draggable;
+    bool          EnableNodeLink;
 
     ImNodeData(const int node_id)
         : Id(node_id), Origin(0.0f, 0.0f), TitleBarContentRect(),
           Rect(ImVec2(0.0f, 0.0f), ImVec2(0.0f, 0.0f)), ColorStyle(), LayoutStyle(), PinIndices(),
-          Draggable(true)
+          Draggable(true), EnableNodeLink(false)
     {
     }
 
@@ -170,6 +173,7 @@ struct ImPinData
     ImNodesPinShape      Shape;
     ImVec2               Pos; // screen-space coordinates
     int                  Flags;
+    bool                 IsNodeLink;
 
     struct
     {
@@ -178,7 +182,7 @@ struct ImPinData
 
     ImPinData(const int pin_id)
         : Id(pin_id), ParentNodeIdx(), AttributeRect(), Type(ImNodesAttributeType_None),
-          Shape(ImNodesPinShape_CircleFilled), Pos(), Flags(ImNodesAttributeFlags_None),
+          Shape(ImNodesPinShape_CircleFilled), Pos(), Flags(ImNodesAttributeFlags_None), IsNodeLink(false),
           ColorStyle()
     {
     }

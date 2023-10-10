@@ -58,6 +58,7 @@ enum ImNodesStyleVar_
     ImNodesStyleVar_NodeCornerRounding,
     ImNodesStyleVar_NodePadding,
     ImNodesStyleVar_NodeBorderThickness,
+    ImNodesStyleVar_AroundPinThickness,
     ImNodesStyleVar_LinkThickness,
     ImNodesStyleVar_LinkLineSegmentsPerLength,
     ImNodesStyleVar_LinkHoverDistance,
@@ -169,6 +170,7 @@ struct ImNodesStyle
     float  NodeCornerRounding;
     ImVec2 NodePadding;
     float  NodeBorderThickness;
+    ImVec2 AroundPinThickness;
 
     float LinkThickness;
     float LinkLineSegmentsPerLength;
@@ -204,6 +206,8 @@ struct ImNodesStyle
     // Set these mid-frame using Push/PopColorStyle. You can index this color array with with a
     // ImNodesCol value.
     unsigned int Colors[ImNodesCol_COUNT];
+
+    float LineSeparationAmount;
 
     ImNodesStyle();
 };
@@ -286,7 +290,7 @@ void PushStyleVar(ImNodesStyleVar style_item, const ImVec2& value);
 void PopStyleVar(int count = 1);
 
 // id can be any positive or negative integer, but INT_MIN is currently reserved for internal use.
-void BeginNode(int id);
+void BeginNode(int id, bool enable_node_link = false);
 void EndNode();
 
 ImVec2 GetNodeDimensions(int id);
@@ -435,4 +439,13 @@ void SaveEditorStateToIniFile(const ImNodesEditorContext* editor, const char* fi
 
 void LoadCurrentEditorStateFromIniFile(const char* file_name);
 void LoadEditorStateFromIniFile(ImNodesEditorContext* editor, const char* file_name);
+
+namespace NodeLink
+{
+    inline int32 NodeIdToInputPinId(int32 node_id) { return -node_id * 2; }
+    inline int32 NodeIdToOutputPinId(int32 node_id) { return -node_id * 2 - 1; }
+    inline int32 InputPinIdToNodeId(int32 input_pin_id) { return -input_pin_id / 2; }
+    inline int32 OutputPinIdToNodeId(int32 output_pin_id) { return -(output_pin_id + 1) / 2; }
+}
+
 } // namespace IMNODES_NAMESPACE
