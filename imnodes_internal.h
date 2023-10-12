@@ -197,8 +197,12 @@ struct ImLinkData
     {
         ImU32 Base, Hovered, Selected;
     } ColorStyle;
+    struct
+    {
+        ImNodeLinkStyle Style;
+    } NodeLink;
 
-    ImLinkData(const int link_id) : Id(link_id), StartPinIdx(), EndPinIdx(), ColorStyle() {}
+    ImLinkData(const int link_id) : Id(link_id), StartPinIdx(), EndPinIdx(), ColorStyle(), NodeLink() {}
 };
 
 struct ImClickInteractionState

@@ -17,6 +17,7 @@ typedef int ImNodesStyleFlags;      // -> enum ImNodesStyleFlags_
 typedef int ImNodesPinShape;        // -> enum ImNodesPinShape_
 typedef int ImNodesAttributeFlags;  // -> enum ImNodesAttributeFlags_
 typedef int ImNodesMiniMapLocation; // -> enum ImNodesMiniMapLocation_
+typedef int ImNodeLinkStyle; // -> enum ImNodeLinkStyle_
 
 enum ImNodesCol_
 {
@@ -106,6 +107,14 @@ enum ImNodesAttributeFlags_
     // actually delete the link for this to work. A deleted link can be detected by calling
     // IsLinkDestroyed() after EndNodeEditor().
     ImNodesAttributeFlags_EnableLinkCreationOnSnap = 1 << 1
+};
+
+enum ImNodeLinkStyle_
+{
+    ImNodeLinkStyle_TwoLinks,
+    ImNodeLinkStyle_StartToEnd,
+    ImNodeLinkStyle_EndToStart,
+    ImNodeLinkStyle_BothLink,
 };
 
 struct ImNodesIO
@@ -329,7 +338,7 @@ void PopAttributeFlag();
 // Render a link between attributes.
 // The attributes ids used here must match the ids used in Begin(Input|Output)Attribute function
 // calls. The order of start_attr and end_attr doesn't make a difference for rendering the link.
-void Link(int id, int start_attribute_id, int end_attribute_id);
+void Link(int id, int start_attribute_id, int end_attribute_id, ImNodeLinkStyle node_link_style = ImNodeLinkStyle_TwoLinks);
 
 // Enable or disable the ability to click and drag a specific node.
 void SetNodeDraggable(int node_id, const bool draggable);
@@ -446,6 +455,8 @@ namespace NodeLink
     inline int32 NodeIdToOutputPinId(int32 node_id) { return -node_id * 2 - 1; }
     inline int32 InputPinIdToNodeId(int32 input_pin_id) { return -input_pin_id / 2; }
     inline int32 OutputPinIdToNodeId(int32 output_pin_id) { return -(output_pin_id + 1) / 2; }
+    void GetNodeLinkPos(int32 node_a_id, int32 node_b_id, ImVec2& link_a_pos, ImVec2& link_b_pos);
+    void GetNodeLinkPos(ImNodesEditorContext& editor, int32 node_a_idx, int32 node_b_idx, ImVec2& link_a_pos, ImVec2& link_b_pos);
 }
 
 } // namespace IMNODES_NAMESPACE

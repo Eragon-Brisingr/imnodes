@@ -816,9 +816,8 @@ void BoxSelectorUpdateSelection(ImNodesEditorContext& editor, ImRect box_rect)
 
             if (pin_start.IsNodeLink)
             {
-                const ImVec2 center = (pin_start.Pos + pin_end.Pos) * 0.5f;
-                const ImVec2 start_pos = GetClosestPointOnRect(editor.Nodes.Pool[pin_start.ParentNodeIdx].Rect, center);
-                const ImVec2 end_pos = GetClosestPointOnRect(editor.Nodes.Pool[pin_end.ParentNodeIdx].Rect, center);
+                ImVec2 start_pos, end_pos;
+                NodeLink::GetNodeLinkPos(editor, pin_start.ParentNodeIdx, pin_end.ParentNodeIdx, start_pos, end_pos);
                 const ImVec2 delta_pos = end_pos - start_pos;
                 const ImVec2 normal = delta_pos * ImInvLength(delta_pos, 0.f);
                 const ImVec2 separation = ImVec2{ normal.y, -normal.x } * GImNodes->Style.LineSeparationAmount;
@@ -962,6 +961,32 @@ bool ShouldLinkSnapToPin(
         return false;
     }
 
+    if (start_pin.IsNodeLink && end_pin.IsNodeLink)
+    {
+        for (int link_idx = 0; link_idx < editor.Links.Pool.size(); ++link_idx)
+        {
+            if (editor.Links.InUse[link_idx] == false)
+            {
+                continue;
+            }
+            const ImLinkData& link = editor.Links.Pool[link_idx];
+            const auto& link_end_pin = editor.Pins.Pool[link.EndPinIdx];
+            if (link_end_pin.ParentNodeIdx != start_pin.ParentNodeIdx)
+            {
+                continue;
+            }
+            if (link.NodeLink.Style == ImNodeLinkStyle_TwoLinks)
+            {
+                continue;
+            }
+            const auto& link_start_pin = editor.Pins.Pool[link.StartPinIdx];
+            if (link_start_pin.ParentNodeIdx == end_pin.ParentNodeIdx)
+            {
+                return false;
+            }
+        }
+    }
+
     // The link to be created must not be a duplicate, unless it is the link which was created on
     // snap. In that case we want to snap, since we want it to appear visually as if the created
     // link remains snapped to the pin.
@@ -1086,9 +1111,7 @@ void ClickInteractionUpdate(ImNodesEditorContext& editor)
                 const auto& end_pin = editor.Pins.Pool[GImNodes->HoveredPinIdx.Value()];
                 if (end_pin.IsNodeLink)
                 {
-                    const ImVec2 center = (start_pin.Pos + end_pin.Pos) * 0.5f;
-                    start_pos = GetClosestPointOnRect(editor.Nodes.Pool[start_pin.ParentNodeIdx].Rect, center);
-                    end_pos = GetClosestPointOnRect(editor.Nodes.Pool[end_pin.ParentNodeIdx].Rect, center);
+                    NodeLink::GetNodeLinkPos(editor, start_pin.ParentNodeIdx, end_pin.ParentNodeIdx, start_pos, end_pos);
                 }
             }
             else
@@ -1334,7 +1357,7 @@ ImOptionalIndex ResolveHoveredNode(const ImVector<int>& depth_stack)
 }
 
 ImOptionalIndex ResolveHoveredLink(
-    const ImObjectPool<ImNodeData>& nodes,
+    ImNodesEditorContext& editor,
     const ImObjectPool<ImLinkData>& links,
     const ImObjectPool<ImPinData>&  pins)
 {
@@ -1376,9 +1399,8 @@ ImOptionalIndex ResolveHoveredLink(
 
         if (start_pin.IsNodeLink)
         {
-            const ImVec2 center = (start_pin.Pos + end_pin.Pos) * 0.5f;
-            const ImVec2 start_pos = GetClosestPointOnRect(nodes.Pool[start_pin.ParentNodeIdx].Rect, center);
-            const ImVec2 end_pos = GetClosestPointOnRect(nodes.Pool[end_pin.ParentNodeIdx].Rect, center);
+            ImVec2 start_pos, end_pos;
+            NodeLink::GetNodeLinkPos(editor, start_pin.ParentNodeIdx, end_pin.ParentNodeIdx, start_pos, end_pos);
             const ImVec2 delta_pos = end_pos - start_pos;
             const ImVec2 normal = delta_pos * ImInvLength(delta_pos, 0.f);
             const ImVec2 separation = ImVec2{ normal.y, -normal.x } * GImNodes->Style.LineSeparationAmount;
@@ -1773,16 +1795,49 @@ void DrawLink(ImNodesEditorContext& editor, const int link_idx)
     if (start_pin.IsNodeLink)
     {
         IM_ASSERT(end_pin.IsNodeLink);
-        const ImVec2 center = (start_pin.Pos + end_pin.Pos) * 0.5f;
-        const ImVec2 start_pos = GetClosestPointOnRect(editor.Nodes.Pool[start_pin.ParentNodeIdx].Rect, center);
-        const ImVec2 end_pos = GetClosestPointOnRect(editor.Nodes.Pool[end_pin.ParentNodeIdx].Rect, center);
+        ImVec2 start_pos, end_pos;
+        NodeLink::GetNodeLinkPos(editor, start_pin.ParentNodeIdx, end_pin.ParentNodeIdx, start_pos, end_pos);
 
-        const ImVec2 delta_pos = end_pos - start_pos;
-        const ImVec2 normal = delta_pos * ImInvLength(delta_pos, 0.f);
-        const ImVec2 separation = ImVec2{ normal.y, -normal.x } * GImNodes->Style.LineSeparationAmount;
-
-        GImNodes->CanvasDrawList->AddLine(end_pos + separation, end_pos + separation + ImRotate(normal, ImCos(22.5f), ImSin(22.5f)) * 16.f, link_color, GImNodes->Style.LinkThickness);
-        GImNodes->CanvasDrawList->AddLine(start_pos + separation, end_pos + separation, link_color, GImNodes->Style.LinkThickness);
+        switch (link.NodeLink.Style)
+        {
+        case ImNodeLinkStyle_TwoLinks:
+            {
+                const ImVec2 delta_pos = end_pos - start_pos;
+                const ImVec2 normal = delta_pos * ImInvLength(delta_pos, 0.f);
+                const ImVec2 separation = ImVec2{ normal.y, -normal.x } * GImNodes->Style.LineSeparationAmount;
+                GImNodes->CanvasDrawList->AddLine(end_pos + separation, end_pos + separation + ImRotate(normal, ImCos(22.5f), ImSin(22.5f)) * 16.f, link_color, GImNodes->Style.LinkThickness);
+                GImNodes->CanvasDrawList->AddLine(start_pos + separation, end_pos + separation, link_color, GImNodes->Style.LinkThickness);
+            }
+            break;
+        case ImNodeLinkStyle_StartToEnd:
+            {
+                const ImVec2 delta_pos = end_pos - start_pos;
+                const ImVec2 normal = delta_pos * ImInvLength(delta_pos, 0.f);
+                const float cos_value = ImCos(22.5f);
+                const float sin_value = ImSin(22.5f);
+                GImNodes->CanvasDrawList->AddLine(end_pos, end_pos + ImRotate(normal, cos_value, sin_value) * 16.f, link_color, GImNodes->Style.LinkThickness);
+                GImNodes->CanvasDrawList->AddLine(end_pos, end_pos + ImRotate(normal, cos_value, -sin_value) * 16.f, link_color, GImNodes->Style.LinkThickness);
+                GImNodes->CanvasDrawList->AddLine(start_pos, end_pos, link_color, GImNodes->Style.LinkThickness);
+            }
+            break;
+        case ImNodeLinkStyle_EndToStart:
+            {
+                const ImVec2 delta_pos = start_pos - end_pos;
+                const ImVec2 normal = delta_pos * ImInvLength(delta_pos, 0.f);
+                const float cos_value = ImCos(22.5f);
+                const float sin_value = ImSin(22.5f);
+                GImNodes->CanvasDrawList->AddLine(start_pos, start_pos + ImRotate(normal, cos_value, sin_value) * 16.f, link_color, GImNodes->Style.LinkThickness);
+                GImNodes->CanvasDrawList->AddLine(start_pos, start_pos + ImRotate(normal, cos_value, -sin_value) * 16.f, link_color, GImNodes->Style.LinkThickness);
+                GImNodes->CanvasDrawList->AddLine(start_pos, end_pos, link_color, GImNodes->Style.LinkThickness);
+            }
+            break;
+        case ImNodeLinkStyle_BothLink:
+            {
+                GImNodes->CanvasDrawList->AddLine(start_pos, end_pos, link_color, GImNodes->Style.LinkThickness);
+            }
+            break;
+        default: ;
+        }
     }
     else
     {
@@ -2540,7 +2595,7 @@ void EndNodeEditor()
         // dragging, we need to have both a link and pin hovered.
         if (!GImNodes->HoveredNodeIdx.HasValue())
         {
-            GImNodes->HoveredLinkIdx = ResolveHoveredLink(editor.Nodes, editor.Links, editor.Pins);
+            GImNodes->HoveredLinkIdx = ResolveHoveredLink(editor, editor.Links, editor.Pins);
         }
     }
 
@@ -2835,7 +2890,7 @@ void PopAttributeFlag()
     GImNodes->CurrentAttributeFlags = GImNodes->AttributeFlagStack.back();
 }
 
-void Link(const int id, const int start_attr_id, const int end_attr_id)
+void Link(const int id, const int start_attr_id, const int end_attr_id, ImNodeLinkStyle node_link_style)
 {
     IM_ASSERT(GImNodes->CurrentScope == ImNodesScope_Editor);
 
@@ -2848,6 +2903,7 @@ void Link(const int id, const int start_attr_id, const int end_attr_id)
     link.ColorStyle.Base = GImNodes->Style.Colors[ImNodesCol_Link];
     link.ColorStyle.Hovered = GImNodes->Style.Colors[ImNodesCol_LinkHovered];
     link.ColorStyle.Selected = GImNodes->Style.Colors[ImNodesCol_LinkSelected];
+    link.NodeLink.Style = node_link_style;
 
     // Check if this link was created by the current link event
     if ((editor.ClickInteraction.Type == ImNodesClickInteractionType_LinkCreation &&
@@ -3500,5 +3556,20 @@ void LoadEditorStateFromIniFile(ImNodesEditorContext* const editor, const char* 
 
     LoadEditorStateFromIniString(editor, file_data, data_size);
     ImGui::MemFree(file_data);
+}
+
+void NodeLink::GetNodeLinkPos(int32 node_a_id, int32 node_b_id, ImVec2& link_a_pos, ImVec2& link_b_pos)
+{
+    auto& editor = ImNodes::EditorContextGet();
+    GetNodeLinkPos(editor, ImNodes::ObjectPoolFind(editor.Nodes, node_a_id), ImNodes::ObjectPoolFind(editor.Nodes, node_b_id), link_a_pos, link_b_pos);
+}
+
+void NodeLink::GetNodeLinkPos(ImNodesEditorContext& editor, int32 node_a_idx, int32 node_b_idx, ImVec2& link_a_pos, ImVec2& link_b_pos)
+{
+    const auto node_a_rect = editor.Nodes.Pool[node_a_idx].Rect;
+    const auto node_b_rect = editor.Nodes.Pool[node_b_idx].Rect;
+    const ImVec2 center = (node_a_rect.GetCenter() + node_b_rect.GetCenter()) * 0.5f;
+    link_a_pos = GetClosestPointOnRect(node_a_rect, center);
+    link_b_pos = GetClosestPointOnRect(node_b_rect, center);
 }
 } // namespace IMNODES_NAMESPACE
