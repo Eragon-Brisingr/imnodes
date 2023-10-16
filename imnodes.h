@@ -267,6 +267,9 @@ void                  EditorContextSet(ImNodesEditorContext*);
 ImVec2                EditorContextGetPanning();
 void                  EditorContextResetPanning(const ImVec2& pos);
 void                  EditorContextMoveToNode(const int node_id);
+float                 EditorContextGetZoom();
+void                  EditorContextSetZoom(float zoom, const ImVec2& zoom_centering_pos = ImVec2());
+void                  EditorContextDrawDebugInfo();
 
 ImNodesIO& GetIO();
 
@@ -339,6 +342,11 @@ void PopAttributeFlag();
 // The attributes ids used here must match the ids used in Begin(Input|Output)Attribute function
 // calls. The order of start_attr and end_attr doesn't make a difference for rendering the link.
 void Link(int id, int start_attribute_id, int end_attribute_id, ImNodeLinkStyle node_link_style = ImNodeLinkStyle_TwoLinks);
+
+// coordinate space conversion helpers
+ImVec2 ScreenSpaceToGridSpace(const ImVec2& v);
+ImVec2 EditorSpaceToGridSpace(const ImVec2& v);
+ImVec2 GridSpaceToScreenSpace(const ImVec2& v);
 
 // Enable or disable the ability to click and drag a specific node.
 void SetNodeDraggable(int node_id, const bool draggable);
@@ -455,8 +463,8 @@ namespace NodeLink
     inline int32 NodeIdToOutputPinId(int32 node_id) { return -node_id * 2 - 1; }
     inline int32 InputPinIdToNodeId(int32 input_pin_id) { return -input_pin_id / 2; }
     inline int32 OutputPinIdToNodeId(int32 output_pin_id) { return -(output_pin_id + 1) / 2; }
-    void GetNodeLinkPos(int32 node_a_id, int32 node_b_id, ImVec2& link_a_pos, ImVec2& link_b_pos);
-    void GetNodeLinkPos(ImNodesEditorContext& editor, int32 node_a_idx, int32 node_b_idx, ImVec2& link_a_pos, ImVec2& link_b_pos);
+    void GetNodeLinkGridPos(int32 node_a_id, int32 node_b_id, ImVec2& link_a_pos, ImVec2& link_b_pos);
+    void GetNodeLinkGridPos(ImNodesEditorContext& editor, int32 node_a_idx, int32 node_b_idx, ImVec2& link_a_pos, ImVec2& link_b_pos);
 }
 
 } // namespace IMNODES_NAMESPACE
